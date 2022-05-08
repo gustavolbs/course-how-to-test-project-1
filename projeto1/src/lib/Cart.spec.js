@@ -1,4 +1,8 @@
-import Cart from './Cart';
+import Cart, {
+  calculateQuantityDiscount,
+  calculatePercentageDiscount,
+} from './Cart';
+import Money from 'dinero.js';
 
 describe('Cart', () => {
   let cart;
@@ -161,6 +165,113 @@ describe('Cart', () => {
       cart.checkout();
 
       expect(cart.getTotal()).toEqual(0);
+    });
+  });
+
+  describe('special conditions', () => {
+    it('should apply percentage discount when quantity above minimum is passed', () => {
+      const condition = {
+        percentage: 30,
+        minimum: 2,
+      };
+
+      cart.add({
+        product,
+        condition,
+        quantity: 3,
+      });
+
+      const discountMultiplier = (100 - condition.percentage) / 100;
+
+      expect(cart.getTotal()).toEqual(
+        Math.ceil(product.price * 3 * discountMultiplier),
+      );
+    });
+
+    it('should NOT apply percentage discount when quantity is below minimum', () => {
+      const condition = {
+        percentage: 30,
+        minimum: 2,
+      };
+
+      cart.add({
+        product,
+        condition,
+        quantity: 2,
+      });
+
+      expect(cart.getTotal()).toEqual(product.price * 2);
+    });
+
+    it('should apply quantity discount for even quantities', () => {
+      const condition = {
+        quantity: 2,
+      };
+
+      cart.add({
+        product,
+        condition,
+        quantity: 6,
+      });
+
+      const discountMultiplier = 0.5;
+
+      expect(cart.getTotal()).toEqual(
+        Math.ceil(product.price * 6 * discountMultiplier),
+      );
+    });
+
+    it('should NOT apply quantity discount when quantity is below minimum', () => {
+      const condition = {
+        quantity: 6,
+      };
+
+      cart.add({
+        product,
+        condition,
+        quantity: 6,
+      });
+
+      expect(cart.getTotal()).toEqual(product.price * 6);
+    });
+
+    it('should apply quantity discount for odd quantities', () => {
+      const condition = {
+        quantity: 2,
+      };
+
+      cart.add({
+        product,
+        condition,
+        quantity: 7,
+      });
+
+      const discountMultiplier = 0.5;
+      const fourProductsWithDiscount = product.price * 6 * discountMultiplier;
+
+      expect(cart.getTotal()).toEqual(
+        Math.ceil(fourProductsWithDiscount + product.price),
+      );
+    });
+
+    it('should apply no discount when item condition is not defined', () => {
+      const item = {
+        product,
+        condition: undefined,
+        quantity: 7,
+      };
+
+      const discountQuantity = calculateQuantityDiscount(
+        Money({ amount: 0 }),
+        item,
+      );
+      const discountPercentage = calculatePercentageDiscount(
+        Money({ amount: 0 }),
+        item,
+      );
+
+      expect(discountQuantity.getAmount()).toEqual(0);
+      expect(discountPercentage.getAmount()).toEqual(0);
     });
   });
 });
