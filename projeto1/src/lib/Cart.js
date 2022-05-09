@@ -1,28 +1,7 @@
 import find from 'lodash/find';
 import remove from 'lodash/remove';
 import Money from 'dinero.js';
-
-export const calculatePercentageDiscount = (amount, item) => {
-  if (item.condition?.percentage && item.quantity > item.condition.minimum) {
-    return amount.percentage(item.condition.percentage);
-  }
-  return Money({ amount: 0 });
-};
-
-export const calculateQuantityDiscount = (amount, item) => {
-  if (item.condition?.quantity && item.quantity > item.condition.quantity) {
-    const isEven = item.quantity % 2 === 0;
-
-    if (!isEven) {
-      let subtracted = amount.subtract(Money({ amount: item.product.price }));
-      let discount = subtracted.percentage(50);
-      return discount;
-    }
-    return amount.percentage(50);
-  }
-
-  return Money({ amount: 0 });
-};
+import { calculateDiscount } from './discount.utils';
 
 Money.defaultCurrency = 'BRL';
 Money.defaultPrecision = 2;
@@ -33,22 +12,23 @@ export default class Cart {
   }
 
   add(item) {
-    if (!item.quantity || !item.product.name || !item.product.price) {
+    const { quantity, product, condition } = item;
+    if (!quantity || !product.name || !product.price) {
       throw new Error('Invalid item');
     }
 
-    const itemToFind = { product: item.product };
+    const itemToFind = { product };
     if (find(this.items, itemToFind)) {
       remove(this.items, itemToFind);
     }
 
     let newItem = {
-      quantity: parseInt(item.quantity, 10),
+      quantity: parseInt(quantity, 10),
       product: {
-        name: item.product.name,
-        price: parseInt(item.product.price, 10),
+        name: product.name,
+        price: parseInt(product.price, 10),
       },
-      ...(item.condition ? { condition: item.condition } : {}),
+      ...(condition ? { condition: condition } : {}),
     };
 
     this.items.push(newItem);
@@ -65,13 +45,12 @@ export default class Cart {
   getTotal() {
     return this.items
       .reduce((acc, item) => {
-        const amount = Money({ amount: item.quantity * item.product.price });
+        const { quantity, product, condition } = item;
+        const amount = Money({ amount: quantity * product.price });
         let discount = Money({ amount: 0 });
 
-        if (item.condition?.percentage) {
-          discount = calculatePercentageDiscount(amount, item);
-        } else if (item.condition?.quantity) {
-          discount = calculateQuantityDiscount(amount, item);
+        if (condition) {
+          discount = calculateDiscount(amount, item);
         }
 
         return acc.add(amount).subtract(discount);
@@ -81,16 +60,17 @@ export default class Cart {
 
   summary() {
     const total = this.getTotal();
+    const formatted = Money({ amount: total }).toFormat('$0,0.00');
     const items = this.items;
 
-    return { total, items };
+    return { total, formatted, items };
   }
 
   checkout() {
-    const { total, items } = this.summary();
+    const { total, items, formatted } = this.summary();
 
     this.items = [];
 
-    return { total, items };
+    return { total, items, formatted };
   }
 }

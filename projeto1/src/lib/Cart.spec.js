@@ -1,7 +1,8 @@
-import Cart, {
+import Cart from './Cart';
+import {
   calculateQuantityDiscount,
   calculatePercentageDiscount,
-} from './Cart';
+} from './discount.utils';
 import Money from 'dinero.js';
 
 describe('Cart', () => {
@@ -156,6 +157,19 @@ describe('Cart', () => {
       expect(cart.getTotal()).toBeGreaterThan(0);
     });
 
+    it('should include formatted amount in the summary', () => {
+      cart.add({
+        quantity: 2,
+        product,
+      });
+      cart.add({
+        quantity: 3,
+        product: product2,
+      });
+
+      expect(cart.summary().formatted).toEqual('R$1,077.18');
+    });
+
     it('should reset the cart when checkout() is called', () => {
       cart.add({
         quantity: 3,
@@ -246,12 +260,7 @@ describe('Cart', () => {
         quantity: 7,
       });
 
-      const discountMultiplier = 0.5;
-      const fourProductsWithDiscount = product.price * 6 * discountMultiplier;
-
-      expect(cart.getTotal()).toEqual(
-        Math.ceil(fourProductsWithDiscount + product.price),
-      );
+      expect(cart.getTotal()).toEqual(product.price * 4);
     });
 
     it('should apply no discount when item condition is not defined', () => {
@@ -272,6 +281,44 @@ describe('Cart', () => {
 
       expect(discountQuantity.getAmount()).toEqual(0);
       expect(discountPercentage.getAmount()).toEqual(0);
+    });
+
+    it('should receive two or more conditions and determine/apply the best discount. First case.', () => {
+      const condition1 = {
+        percentage: 30,
+        minimum: 2,
+      };
+
+      const condition2 = {
+        quantity: 2,
+      };
+
+      cart.add({
+        product,
+        condition: [condition1, condition2],
+        quantity: 5,
+      });
+
+      expect(cart.getTotal()).toEqual(product.price * 3);
+    });
+
+    it('should receive two or more conditions and determine/apply the best discount. Second case.', () => {
+      const condition1 = {
+        percentage: 80,
+        minimum: 2,
+      };
+
+      const condition2 = {
+        quantity: 2,
+      };
+
+      cart.add({
+        product,
+        condition: [condition1, condition2],
+        quantity: 5,
+      });
+
+      expect(cart.getTotal()).toEqual(product.price);
     });
   });
 });
